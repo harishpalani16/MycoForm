@@ -1,0 +1,117 @@
+/* Design tokens, reset and base elements.
+   Every colour in the app resolves to a token declared here — app.css must not
+   contain a raw hex literal. src/ui/css.test.ts enforces both that rule and the
+   contrast floors quoted below. */
+
+:root{
+ /* Surfaces. Four levels replace eight near-identical dark greens. */
+ --surface-0:#121815;        /* page root, letterbox */
+ --surface-1:#161d1a;        /* main, behind the canvas — matches the three.js clear colour */
+ --surface-2:#1a221e;        /* header, footer, rails */
+ --surface-3:#222b26;        /* raised: transport, transform panel, export dialog, HUD chips */
+ --surface-glass:#1a221eeb;  /* HUD overlays; alpha >= .92 so contrast tracks --surface-2 */
+
+ /* Text. Three levels replace twelve hand-mixed sages.
+    Hierarchy below --text-3 is expressed by size, weight and tracking —
+    NEVER by lowering contrast. --text-3 is the floor. */
+ --text-1:#d6ddd2;
+ --text-2:#a9b8a3;
+ --text-3:#90a18b;
+
+ /* Accent */
+ --accent:#c9dda6;
+ --accent-ink:#263221;       /* text on an --accent fill */
+ --accent-wash:#c9dda614;
+ --accent-edge:#c9dda63d;
+
+ /* Structure */
+ --border-subtle:#ffffff14;  /* decorative dividers only */
+ --border-control:#6b7a64;   /* every interactive boundary — meets 3:1 for UI components */
+ --focus:#e2f2c0;
+ --danger:#e8b5a2;
+ --danger-wash:#9d4c3c1a;
+ --danger-edge:#b76d5744;
+ --hover-text:#e9f8c7;
+ --hover-wash:#ffffff09;
+ --ink-wash:#00000018;
+ --shadow-raise:0 10px 40px #00000066;
+ --shadow-modal:0 30px 100px #000000b3;
+ --scrim:#08100bd6;
+
+ /* Type scale. Floor is 11px, up from 7px. No px sizes anywhere, so the
+    whole UI scales with the reader's browser font-size setting. */
+ --fs-micro:.6875rem;   /* 11px */
+ --fs-xs:.75rem;        /* 12px */
+ --fs-sm:.8125rem;      /* 13px */
+ --fs-md:.9375rem;      /* 15px */
+ --fs-lg:1.125rem;      /* 18px */
+ --fs-xl:1.5rem;        /* 24px */
+ --fs-display-sm:clamp(1.25rem,1.6vw + .6rem,1.75rem);
+ --fs-display:clamp(1.5rem,1.5vw + .7rem,2.125rem);
+
+ /* Tracking in em so the convention survives clamp(): negative on display,
+    positive on all-caps micro-labels. */
+ --track-display:-.04em;
+ --track-caps:.16em;
+ --track-brand:.14em;
+ --lh-tight:1.15;
+ --lh-ui:1.35;
+ --lh-body:1.7;
+
+ /* Layout. Rails in rem so they grow with the type rather than clipping it. */
+ --rail-l:16.5rem;
+ --rail-r:19rem;
+ --hud-pad:clamp(.75rem,1.4vw,1.5rem);
+ --hud-gap:.625rem;
+ --radius:.25rem;
+ --radius-lg:.5rem;
+
+ font-family:'DM Sans',sans-serif;
+ color:var(--text-1);
+ background:var(--surface-0);
+ font-synthesis:none;
+}
+
+@media(min-width:1600px){:root{--rail-l:18rem;--rail-r:20.5rem}}
+
+*{box-sizing:border-box}
+body{margin:0}
+
+button,input,select{font:inherit}
+button{cursor:pointer;color:inherit;border:0;background:none;display:inline-flex;
+ align-items:center;justify-content:center;gap:.5rem}
+button:hover{color:var(--hover-text);background:var(--hover-wash)}
+
+select{background:var(--surface-3);color:var(--text-1);border:1px solid var(--border-control);
+ padding:.375rem .5rem;width:100%;border-radius:var(--radius)}
+
+/* One focus rule for the whole app. outline-offset is load-bearing, not
+   decoration: --focus on an --accent fill is only 1.18:1, so the ring has to
+   sit on the surrounding surface to stay visible on the primary button. */
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
+ outline:2px solid var(--focus);outline-offset:2px;border-radius:var(--radius)}
+
+/* Range inputs. The old rule gave these a 2px-tall *element box* — the thumb
+   painted outside it, so the hit region was 2px. Now the element is 28px and
+   the track is drawn inside it.
+   The -webkit- and -moz- thumb rules MUST stay in separate blocks: a merged
+   selector list is invalidated by the unrecognised pseudo-element and both
+   engines silently drop the whole thing. */
+input[type=range]{appearance:none;-webkit-appearance:none;width:100%;height:1.75rem;
+ background:transparent;margin:.25rem 0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:.25rem;border-radius:999px;
+ background:var(--surface-3);border:1px solid var(--border-control)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:1rem;height:1rem;
+ margin-top:-.4375rem;border-radius:50%;background:var(--accent);border:2px solid var(--surface-2)}
+input[type=range]::-moz-range-track{height:.25rem;border-radius:999px;
+ background:var(--surface-3);border:1px solid var(--border-control)}
+input[type=range]::-moz-range-thumb{width:1rem;height:1rem;border:2px solid var(--surface-2);
+ border-radius:50%;background:var(--accent)}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+ clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+@media(prefers-reduced-motion:reduce){
+ *,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+  transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

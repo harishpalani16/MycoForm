@@ -1,20 +1,75 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {MousePointer2,Sprout,Droplets,Wind,Scissors,Play,Pause,RotateCcw,Save,FolderOpen,Download,ArrowUpRight,Eye} from 'lucide-react';
+import {PanelLeft,PanelRight,Maximize2,BookOpen} from 'lucide-react';
 import {Organism,firstSpore,V,capacity,Placement} from './simulation/organism';
-import OrganicWorld from './rendering/OrganicWorld';
 import {FiberDetail} from './rendering/LivingNetwork';
-import TransformPanel from './TransformPanel';
-import ExportDialog from './ExportDialog';
 import {GumballMode} from './rendering/PlacementGumball';
-import './style.css';import './studio.css';import './organic.css';
-const actions=[['observe','Observe',MousePointer2],['transform','Transform / select',MousePointer2],['feed','Offer nutrients',Droplets],['spore','Plant a spore',Sprout],['clear','Protect open space',Wind],['prune','Prune gently',Scissors]] as const;
+import ExportDialog from './ExportDialog';
+import LeftRail from './ui/LeftRail';
+import SceneHud from './ui/SceneHud';
+import RightRail from './ui/RightRail';
+import AppFooter from './ui/AppFooter';
+import {useMediaQuery,usePrefersReducedMotion} from './ui/hooks';
+import './tokens.css';import './app.css';
+
+const LEFT_ID='rail-left',RIGHT_ID='rail-right';
+
 function App(){
- const [o,setO]=useState(()=>firstSpore());const [,update]=useState(0);const [running,setRunning]=useState(false);const [tool,setTool]=useState('feed');const [height,setHeight]=useState(.8);const [radius,setRadius]=useState(1.6);const [speed,setSpeed]=useState(1);const [fields,setFields]=useState(true);const [mode,setMode]=useState('living');const [view,setView]=useState('grove');const [notice,setNotice]=useState('');const [seed,setSeed]=useState(42912);const file=useRef<HTMLInputElement>(null);
- const [fit,setFit]=useState(0),[wide,setWide]=useState(false),[detail,setDetail]=useState<FiberDetail>('auto');
+ const [o,setO]=useState(()=>firstSpore());
+ const [,update]=useState(0);
+ const [running,setRunning]=useState(false);
+ const [tool,setTool]=useState('feed');
+ const [height,setHeight]=useState(.8);
+ const [radius,setRadius]=useState(1.6);
+ const [speed,setSpeed]=useState(1);
+ const [fields,setFields]=useState(true);
+ const [mode,setMode]=useState('living');
+ const [view,setView]=useState('grove');
+ const [notice,setNotice]=useState('');
+ const [noticeHeld,setNoticeHeld]=useState(false);
+ const [seed,setSeed]=useState(42912);
+ const [fit,setFit]=useState(0);
+ const [detail,setDetail]=useState<FiberDetail>('auto');
+ const [selection,setSelection]=useState<Placement|null>(null);
+ const [transformMode,setTransformMode]=useState<GumballMode>('translate');
+ const [exportOpen,setExportOpen]=useState(false);
+ const [deleted,setDeleted]=useState<{before:string;revision:number;owner:Organism}|null>(null);
+ const [focus,setFocus]=useState(false);
+ const [openRail,setOpenRail]=useState<'left'|'right'|null>(null);
+ const [showNotes,setShowNotes]=useState(false);
  const stepCost=useRef(0);
+ const reduced=usePrefersReducedMotion();
+
+ // Docking. Width and the manual Focus toggle share one code path, so a rail is
+ // never deleted — only moved into a slide-over sheet. Every control stays
+ // reachable at every supported width.
+ const roomyLeft=useMediaQuery('(min-width:980px)');
+ const roomyRight=useMediaQuery('(min-width:1180px)');
+ const dockLeft=roomyLeft&&!focus,dockRight=roomyRight&&!focus;
+ const overlay=`${dockLeft?'':'left '}${dockRight?'':'right'}`.trim();
+ useEffect(()=>{if(dockLeft&&openRail==='left')setOpenRail(null)},[dockLeft,openRail]);
+ useEffect(()=>{if(dockRight&&openRail==='right')setOpenRail(null)},[dockRight,openRail]);
+
+ // A sheet is not a dialog — no focus trap, no aria-modal — but focus should
+ // still follow it in and come back to the toggle on close.
+ const returnFocus=useRef<HTMLElement|null>(null);
+ useEffect(()=>{
+  if(openRail){
+   returnFocus.current=document.activeElement as HTMLElement;
+   // Deferred a frame: the sheet is still visibility:hidden when this effect
+   // runs, and focus() on a hidden element silently does nothing.
+   const id=openRail==='left'?LEFT_ID:RIGHT_ID;
+   const raf=requestAnimationFrame(()=>document.getElementById(id)?.focus());
+   return()=>cancelAnimationFrame(raf);
+  }
+  if(returnFocus.current){returnFocus.current.focus();returnFocus.current=null}
+ },[openRail]);
+
+ // Growth loop. Accumulates a time debt so a slow frame catches up, but yields
+ // after 8ms so the browser stays responsive, and throttles React re-renders.
  useEffect(()=>{
   if(!running)return;let frame=0,previous=performance.now(),display=previous,debt=1;
+  const gap=reduced?500:200;
   const tick=(now:number)=>{
    debt=Math.min(5,debt+(now-previous)*speed/100);previous=now;const deadline=performance.now()+8;let changed=false;
    while(debt>=1){const begin=performance.now();o.step();stepCost.current=performance.now()-begin;debt--;changed=true;
@@ -22,27 +77,143 @@ function App(){
     if(!o.living){setRunning(false);setNotice('The organism is resting. Offer food near existing tissue to wake new growth.');update(v=>v+1);return;}
     if(performance.now()>=deadline)break;
    }
-   if(changed&&now-display>=200){update(v=>v+1);display=now;}frame=requestAnimationFrame(tick);
+   if(changed&&now-display>=gap){update(v=>v+1);display=now;}frame=requestAnimationFrame(tick);
   };frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
- },[running,speed,o]);
- useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),6500);return()=>clearTimeout(t)},[notice]);
- const [selection,setSelection]=useState<Placement|null>(null);const [transformMode,setTransformMode]=useState<GumballMode>('translate');
- const [exportOpen,setExportOpen]=useState(false);
- const [deleted,setDeleted]=useState<{before:string;revision:number;owner:Organism}|null>(null);
- const canUndo=deleted?.owner===o&&deleted.revision===o.revision;
- const deleteSelected=()=>{if(!selection)return;setRunning(false);const before=o.save();if(o.deletePlacement(selection)){setDeleted({before,revision:o.revision,owner:o});setSelection(null);update(v=>v+1);setNotice(selection.kind==='spore'?'Spore and connected tissue deleted. Undo delete is available in the transform panel.':'Placement deleted. Undo delete is available in the transform panel.');}};
- const undoDelete=()=>{if(!canUndo||!deleted)return;setRunning(false);setO(Organism.load(deleted.before));setDeleted(null);setSelection(null);setNotice('Deleted placement restored.');};
- const selectPlacement=(s:Placement|null)=>{setSelection(s);setRunning(false);setFields(true);setTool('transform');if(s?.kind==='spore')setTransformMode('translate');};
- const transform=(s:Placement,p:V,radius?:number)=>{setRunning(false);o.transformPlacement(s,p,radius);update(v=>v+1)};
+ },[running,speed,o,reduced]);
+
+ // Long messages get longer on screen, and hovering or focusing the toast holds
+ // it open (WCAG 2.2.1 — a timed failure message must not be the only chance to
+ // read it). The dismiss button is the manual escape.
+ useEffect(()=>{
+  if(!notice||noticeHeld)return;
+  const ms=Math.max(6500,notice.split(/\s+/).length*400);
+  const t=setTimeout(()=>setNotice(''),ms);return()=>clearTimeout(t);
+ },[notice,noticeHeld]);
+
  useEffect(()=>{setSelection(null)},[o]);
- useEffect(()=>{if(tool==='transform'){setRunning(false);setFields(true)}else setSelection(null)},[tool]);
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(exportOpen||tool!=='transform'||(e.target as HTMLElement)?.closest('input,select,textarea'))return;if((e.key==='Delete'||e.key==='Backspace')&&selection){e.preventDefault();deleteSelected();}if(e.key==='Escape')setSelection(null);if(e.key.toLowerCase()==='w')setTransformMode('translate');if(e.key.toLowerCase()==='r'&&selection?.kind!=='spore')setTransformMode('scale');};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[tool,selection,o,exportOpen]);
- const place=(p:V)=>{if(tool==='feed'){if(!o.feed(p,radius))setNotice('Too many active food patches. Let existing food be absorbed first.');}else if(tool==='spore'){if(!o.plant([p[0],.15,p[2]]))setNotice('Up to 12 spores may grow in one experiment. Plant outside protected space.');}else if(tool==='clear')o.reserve(p,radius);else if(tool==='prune')o.prune(p,radius);update(v=>v+1)};
- const grow=()=>{if(!o.nodes.length){setNotice('Plant a spore first.');return}if(!o.living){setNotice('Feed close to existing tissue to wake it, then resume.');return}if(!running){setSelection(null);if(tool==='transform')setTool('observe')}setRunning(!running)};
- const offer=()=>{setSelection(null);if(tool==='transform')setTool('observe');o.feed([1.3,1.1,.4],1.4);o.feed([-.9,2.5,.8],1.4);o.feed([.7,4,-.8],1.4);setRunning(true);setNotice('Three food patches offered. Nothing specifies the form it will take.');update(v=>v+1)};
- const mature=o.mature;const age=o.time<10?'AWAKENING':o.time<50?'EXPLORING':o.time<130?'ESTABLISHING':'AN OLD, LIVING NETWORK';
- return <div className={`app studio organic ${wide?'wide-view':''} ${o.nodes.length>40?'has-growth':''}`}><header><div className="brand"><span className="brandmark">✳</span> MYCOFORM <span className="brand-sub">THE ART OF CULTIVATING SPACE</span></div><div className="header-right"><span className="status-dot"/> ONE SPORE. MANY POSSIBILITIES. <span className="version">LIVING EXPERIMENT / 03</span></div></header><div className="workspace"><aside className="left"><div className="eyebrow">AN OPEN-ENDED CULTIVATION <span>↗</span></div><h1>Let it<br/>become<span>.</span></h1><p className="intro">Give it food, space, and time.<br/><em>Discover what takes root.</em></p><div className="divider"/><div className="section-title">TEND THE ORGANISM</div><nav>{actions.map(([id,label,Icon])=><button className={`tool ${tool===id?'selected':''}`} key={id} onClick={()=>setTool(id)}><Icon size={17}/>{label}</button>)}</nav><div className="tool-options"><label>Feeding height <b>{height.toFixed(1)} m</b></label><input aria-label="Feeding height" type="range" min=".2" max="150" step=".2" value={height} onChange={e=>setHeight(+e.target.value)}/><div className="height-presets">{[.4,2,8,30].map(h=><button className={height===h?'active':''} key={h} onClick={()=>setHeight(h)}>{h===.4?'Ground':`${h} m`}</button>)}</div><label className="radius-label">Influence radius <b>{radius.toFixed(1)} m</b></label><input aria-label="Influence radius" type="range" min=".6" max="10" step=".2" value={radius} onChange={e=>setRadius(+e.target.value)}/><p className="hint">{tool==='transform'?'Click a placed object to show its gumball. Drag colored axes to move it, or choose a placement in the panel.':tool==='feed'?'Click or drag to offer food. Start near a growing tip; place the next feed a little farther away. Raise the height to invite upward growth.':tool==='observe'?'Drag to orbit, right-drag to pan, and scroll to zoom. Watch what the organism chooses.':tool==='clear'?'Reserve a pocket of empty space. New tips will turn away from it. Existing strands remain until pruned.':tool==='spore'?'Click the ground to introduce another colony. Nearby networks may eventually join.':'Click at the selected height to remove local strands. Feed elsewhere to invite a different direction.'}</p></div><div className="left-bottom"><span className="eyebrow">THE FORM IS NOT GIVEN</span><p>You offer a possibility.<br/>The organism finds a way.</p></div></aside><main><div className="scene"><OrganicWorld o={o} tool={tool} height={height} radius={radius} place={place} view={view} fit={fit} detail={detail} fields={fields} mode={mode} selection={selection} select={selectPlacement} transformMode={transformMode} transform={transform}/></div><div className="viewport-top"><div><span className="live-dot"/> {running?'GROWING':o.living?'WAITING FOR YOUR NEXT MOVE':'RESTING — READY TO BE FED'}<small>OPEN SPACE / NO PREDEFINED ENVELOPE</small></div><span className="studio-tag">{age}</span></div><div className="view-modes">{[['grove','The grove'],['above','From above'],['close','Up close']].map(([id,label])=><button className={view===id?'active':''} key={id} onClick={()=>{setView(id);setFit(v=>v+1);setTool('observe')}}>{label}</button>)}<button onClick={()=>{setFit(v=>v+1);setTool('observe')}}>Fit organism</button><button className={wide?'active':''} onClick={()=>setWide(!wide)}>{wide?'Show panels':'Wide view'}</button></div>{wide&&<select className="wide-tool" aria-label="Cultivation tool" value={tool} onChange={e=>setTool(e.target.value)}>{actions.map(([id,label])=><option value={id} key={id}>{label}</option>)}</select>}<div className="scene-caption"><span>A SPORE, A PLACE, A PASSAGE OF TIME</span><h2>Architecture<br/><i>without a blueprint.</i></h2><p>Follow the food. Find a path. Become something.</p></div><div className="material-switch"><button className={fields?'active':''} onClick={()=>setFields(!fields)}><Eye size={13}/> Food & space</button><button className={mode==='living'?'active':''} onClick={()=>setMode('living')}>Living tissue</button><button className={mode==='fibers'?'active':''} onClick={()=>setMode('fibers')}>Fine fibers</button></div><div className="tutorial"><span className="step"><Sprout size={25}/></span><div><strong>{!o.foods.length?'Start with a small act of care':!o.living?'Dormancy is a pause, not an ending':'Feed the direction you are curious about'}</strong><p>{!o.foods.length?'Offer food near the spore, or try the first feeding on the right. Then let it grow.':!o.living?'Food near old tissue can wake resting tips and encourage new shoots.':'Keep feeding near the edge of the network. Its branching and joins decide the form.'}</p></div></div><div className="transport"><button className="grow" onClick={grow}>{running?<Pause size={15}/>:<Play size={15}/>} {running?'Pause':'Let it grow'}</button><div className="speeds">{[1,2,5].map(s=><button className={speed===s?'active':''} onClick={()=>setSpeed(s)} key={s}>{s}×</button>)}</div><span className="time">{Math.floor(o.time)} cycles</span></div><div className="camera-help">{tool==='observe'?'DRAG TO ORBIT · RIGHT DRAG TO PAN · SCROLL TO ZOOM':`${tool==='feed'?'CLICK OR DRAG TO FEED':tool.toUpperCase()} · HEIGHT ${height.toFixed(1)} M · SWITCH TO OBSERVE TO ORBIT`}</div>{notice&&<div className="toast">{notice}</div>}</main><aside className="right">{tool==='transform'&&<TransformPanel o={o} selection={selection} select={selectPlacement} mode={transformMode} setMode={setTransformMode} change={transform} remove={deleteSelected} undo={undoDelete} canUndo={canUndo} done={()=>{setSelection(null);setTool('observe')}}/>}<div className="section-title">A LIVING RELATIONSHIP</div><div className="objective"><span className="eyebrow">CULTIVATE, THEN DISCOVER</span><h3>The structure is an outcome <Sprout size={16}/></h3><p>Feed a spore. Follow its branching. Tend its oldest paths. Over time, find shelter, passages, and places within what grows.</p></div><div className="section-title">THE ORGANISM <span>ALIVE</span></div><div className="stats"><div><span>Exploring tips</span><strong>{o.living}</strong></div><div><span>Network joins</span><strong>{o.joins}</strong></div></div><div className="metrics"><p>Resting tips <b>{o.tips.length-o.living}</b></p><p>Established strands <b>{mature.toLocaleString()}</b></p><p>Total living length <b>{o.length.toFixed(1)} m</b></p><p>Food absorbed <b>{Math.floor(o.absorbed).toLocaleString()} units</b></p><p>Food still available <b>{Math.ceil(o.foods.reduce((s,f)=>s+f.remaining,0))} units</b></p></div><div className="divider"/><div className="section-title">CONDITIONS FOR LIFE</div><div className="tool-options climate"><label>Moisture <b>{Math.round(o.moisture*100)}%</b></label><input aria-label="Moisture" type="range" min=".15" max="1" step=".05" value={o.moisture} onChange={e=>{setDeleted(null);o.moisture=+e.target.value;update(v=>v+1)}}/><label>Exploratory tendency <b>{o.exploration.toFixed(2)}</b></label><input aria-label="Exploratory tendency" type="range" min=".2" max="1.4" step=".05" value={o.exploration} onChange={e=>{setDeleted(null);o.exploration=+e.target.value;update(v=>v+1)}}/></div><button className="first-feed" onClick={offer}>Offer the first feeding <ArrowUpRight size={15}/></button><p className="hint">A few food patches above the first spore. Watch, then add your own. You can feed new growth for as long as there is room to explore.</p><div className="care-note"><span className="eyebrow">TIME LEAVES A TRACE</span><p>Busy pathways thicken. New shoots stay fine. A living form holds the history of how you tended it.</p></div><div className="detail-control"><label htmlFor="fiber-detail">Fiber detail</label><select id="fiber-detail" value={detail} onChange={e=>setDetail(e.target.value as FiberDetail)}><option value="auto">Adaptive · recommended</option><option value="full">Full fibers</option><option value="light">Lightweight</option></select><p>Adaptive detail reduces fine strands in large or distant views. Exports keep the complete network.</p><span>{stepCost.current.toFixed(1)} ms / last growth step</span></div><p className="approx">A speculative growth game, not a biological time model. Cycles are game time. Capacity: {o.nodes.length.toLocaleString()} / {capacity.toLocaleString()} nodes. Pruning reclaims space.</p></aside></div><footer><span><span className="status-dot"/> CONTINUOUS GROWTH <b>/</b> LOCAL RULES, OPEN POSSIBILITIES</span><div><label>SEED <input aria-label="Seed for next organism" type="number" value={seed} onChange={e=>setSeed(+e.target.value)}/></label><button onClick={()=>{setRunning(false);setO(firstSpore(seed));setNotice('A new spore. A new possibility.')}}><RotateCcw size={13}/> New spore</button><button onClick={()=>{try{localStorage.setItem('mycoform-organism',o.save());setNotice('Organism and feeding history saved.')}catch{setNotice('Unable to save in this browser.')}}}><Save size={13}/> Save</button><button onClick={()=>{try{setO(Organism.load(localStorage.getItem('mycoform-organism')||''));setRunning(false)}catch{setNotice('No saved organism found.')}}}><FolderOpen size={13}/> Load</button><button onClick={()=>file.current?.click()}>Import</button><button onClick={()=>{setRunning(false);setExportOpen(true)}}><Download size={13}/> Export options</button><input ref={file} type="file" accept=".json" hidden onChange={async e=>{try{const f=e.target.files?.[0];if(f){setO(Organism.load(await f.text()));setRunning(false)}}catch{setNotice('Choose an organism experiment JSON file.')}}}/></div></footer>{exportOpen&&<ExportDialog o={o} close={()=>setExportOpen(false)} notify={setNotice}/>}</div>;
+ useEffect(()=>{
+  if(tool==='transform'){
+   setRunning(false);setFields(true);
+   // The transform panel lives in the right rail. Without this the tool would
+   // be selectable with its panel off-screen and Undo delete unreachable.
+   if(!dockRight)setOpenRail('right');
+  }else setSelection(null);
+ },[tool,dockRight]);
+
+ const canUndo=deleted?.owner===o&&deleted.revision===o.revision;
+
+ const deleteSelected=()=>{
+  if(!selection)return;setRunning(false);const before=o.save();
+  if(o.deletePlacement(selection)){
+   setDeleted({before,revision:o.revision,owner:o});setSelection(null);update(v=>v+1);
+   setNotice(selection.kind==='spore'
+    ?'Spore and connected tissue deleted. Undo delete is available in the transform panel.'
+    :'Placement deleted. Undo delete is available in the transform panel.');
+  }
+ };
+ const undoDelete=()=>{
+  if(!canUndo||!deleted)return;
+  setRunning(false);setO(Organism.load(deleted.before));setDeleted(null);setSelection(null);
+  setNotice('Deleted placement restored.');
+ };
+ const selectPlacement=(s:Placement|null)=>{
+  setSelection(s);setRunning(false);setFields(true);setTool('transform');
+  if(s?.kind==='spore')setTransformMode('translate');
+ };
+ const transform=(s:Placement,p:V,r?:number)=>{setRunning(false);o.transformPlacement(s,p,r);update(v=>v+1)};
+
+ useEffect(()=>{
+  const key=(e:KeyboardEvent)=>{
+   // An open sheet takes Escape first; only then does it clear the selection.
+   if(e.key==='Escape'&&openRail){e.preventDefault();setOpenRail(null);return}
+   if(exportOpen||tool!=='transform'||(e.target as HTMLElement)?.closest('input,select,textarea'))return;
+   if((e.key==='Delete'||e.key==='Backspace')&&selection){e.preventDefault();deleteSelected();}
+   if(e.key==='Escape')setSelection(null);
+   if(e.key.toLowerCase()==='w')setTransformMode('translate');
+   if(e.key.toLowerCase()==='r'&&selection?.kind!=='spore')setTransformMode('scale');
+  };
+  window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);
+ },[tool,selection,o,exportOpen,openRail]);
+
+ const place=(p:V)=>{
+  if(tool==='feed'){if(!o.feed(p,radius))setNotice('Too many active food patches. Let existing food be absorbed first.');}
+  else if(tool==='spore'){if(!o.plant([p[0],.15,p[2]]))setNotice('Up to 12 spores may grow in one experiment. Plant outside protected space.');}
+  else if(tool==='clear')o.reserve(p,radius);
+  else if(tool==='prune')o.prune(p,radius);
+  update(v=>v+1);
+ };
+ const grow=()=>{
+  if(!o.nodes.length){setNotice('Plant a spore first.');return}
+  if(!o.living){setNotice('Feed close to existing tissue to wake it, then resume.');return}
+  if(!running){setSelection(null);if(tool==='transform')setTool('observe')}
+  setRunning(!running);
+ };
+ const offer=()=>{
+  setSelection(null);if(tool==='transform')setTool('observe');
+  o.feed([1.3,1.1,.4],1.4);o.feed([-.9,2.5,.8],1.4);o.feed([.7,4,-.8],1.4);
+  // Under reduced motion nothing starts moving without an explicit action.
+  if(!reduced)setRunning(true);
+  setNotice(reduced
+   ?'Three food patches offered. Press Let it grow when you are ready.'
+   :'Three food patches offered. Nothing specifies the form it will take.');
+  update(v=>v+1);
+ };
+ const refit=()=>{setFit(v=>v+1);setTool('observe')};
+ const setMoisture=(v:number)=>{setDeleted(null);o.moisture=v;update(n=>n+1)};
+ const setExploration=(v:number)=>{setDeleted(null);o.exploration=v;update(n=>n+1)};
+
+ // Latched so pruning back below a threshold never pops the editorial layer
+ // in mid-session. Resets only on a new or imported organism.
+ const stageRef=useRef(0);
+ useEffect(()=>{stageRef.current=0},[o]);
+ const reached=o.time>=50?2:o.nodes.length>40?1:0;
+ if(reached>stageRef.current)stageRef.current=reached;
+ const stage=stageRef.current;
+
+ const mature=o.mature;
+ const age=o.time<10?'AWAKENING':o.time<50?'EXPLORING':o.time<130?'ESTABLISHING':'AN OLD, LIVING NETWORK';
+
+ return <div className="app" data-stage={stage} data-copy={showNotes?0:stage}>
+  <header>
+   <div className="brand"><span className="brandmark">✳</span> MYCOFORM <span className="brand-sub">THE ART OF CULTIVATING SPACE</span></div>
+   <div className="header-right">
+    <span className="header-note"><span className="status-dot"/> ONE SPORE. MANY POSSIBILITIES. <span className="version">LIVING EXPERIMENT / 03</span></span>
+    {!dockLeft&&<button className="rail-toggle" aria-expanded={openRail==='left'} aria-controls={LEFT_ID}
+     onClick={()=>setOpenRail(openRail==='left'?null:'left')}><PanelLeft size={13}/> Tools</button>}
+    {!dockRight&&<button className="rail-toggle" aria-expanded={openRail==='right'} aria-controls={RIGHT_ID}
+     onClick={()=>setOpenRail(openRail==='right'?null:'right')}><PanelRight size={13}/> Details</button>}
+    <button className="rail-toggle" aria-pressed={showNotes} onClick={()=>setShowNotes(!showNotes)}
+     title="Show the written notes again"><BookOpen size={13}/> Notes</button>
+    <button className="rail-toggle" aria-pressed={focus} onClick={()=>{setFocus(!focus);setOpenRail(null)}}>
+     <Maximize2 size={13}/> Focus</button>
+   </div>
+  </header>
+
+  <div className="workspace" data-overlay={overlay||undefined} data-open={openRail??undefined}>
+   <LeftRail id={LEFT_ID} tool={tool} setTool={setTool} height={height} setHeight={setHeight}
+    radius={radius} setRadius={setRadius}/>
+
+   <SceneHud o={o} tool={tool} height={height} radius={radius} place={place}
+    view={view} setView={setView} refit={refit} fit={fit} detail={detail} fields={fields}
+    setFields={setFields} mode={mode} setMode={setMode} selection={selection}
+    select={selectPlacement} transformMode={transformMode} transform={transform}
+    running={running} grow={grow} speed={speed} setSpeed={setSpeed} notice={notice}
+    dismissNotice={()=>{setNoticeHeld(false);setNotice('')}} holdNotice={setNoticeHeld}
+    age={age} snap={reduced}/>
+
+   <RightRail id={RIGHT_ID} o={o} tool={tool} selection={selection} select={selectPlacement}
+    transformMode={transformMode} setTransformMode={setTransformMode} transform={transform}
+    remove={deleteSelected} undo={undoDelete} canUndo={canUndo}
+    doneTransform={()=>{setSelection(null);setTool('observe')}} mature={mature}
+    setMoisture={setMoisture} setExploration={setExploration} offer={offer}
+    detail={detail} setDetail={setDetail} stepCostMs={stepCost.current}/>
+  </div>
+
+  <AppFooter o={o} seed={seed} setSeed={setSeed} setO={setO} setRunning={setRunning}
+   setNotice={setNotice} openExport={()=>{setRunning(false);setExportOpen(true)}}/>
+
+  {exportOpen&&<ExportDialog o={o} close={()=>setExportOpen(false)} notify={setNotice}/>}
+ </div>;
 }
+
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
-
-

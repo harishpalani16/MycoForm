@@ -37,14 +37,15 @@ function template(){
  geo.setIndex(new THREE.BufferAttribute(indices,1));tube.dispose();return {geo,single};
 }
 type Chunk={geo:THREE.InstancedBufferGeometry;mesh:THREE.Mesh;lineGeo:THREE.InstancedBufferGeometry;lines:THREE.LineSegments;count:number;radiusVersion:number;box:THREE.Box3};
-export default function LivingNetwork({o,mode,detail}:{o:Organism;mode:string;detail:FiberDetail}){
+export default function LivingNetwork({o,mode,detail,snap}:{o:Organism;mode:string;detail:FiberDetail;snap?:boolean}){
  const group=useRef<THREE.Group>(null);
  const data=useMemo(()=>{const base=template(),material=new THREE.ShaderMaterial({vertexShader,fragmentShader,uniforms:{time:{value:0},fine:{value:0}}});return {base,material,chunks:[] as Chunk[],owner:null as Organism|null,epoch:-1,time:0};},[]);
  useEffect(()=>()=>{for(const c of data.chunks){c.geo.dispose();c.lineGeo.dispose();}data.base.geo.dispose();data.material.dispose();},[data]);
  useFrame(({camera},dt)=>{
   if(!group.current)return;
   if(data.owner!==o||data.epoch!==o.geometryRevision){for(const c of data.chunks){group.current.remove(c.mesh,c.lines);c.geo.dispose();c.lineGeo.dispose();}data.chunks=[];data.owner=o;data.epoch=o.geometryRevision;data.time=o.time;}
-  data.time+=Math.min(1,dt*18)*(o.time-data.time);data.material.uniforms.time.value=data.time+.1;data.material.uniforms.fine.value=mode==='fibers'?1:0;
+  // Under reduced motion, strands appear at their true length instead of easing in.
+  data.time+=(snap?1:Math.min(1,dt*18))*(o.time-data.time);data.material.uniforms.time.value=data.time+.1;data.material.uniforms.fine.value=mode==='fibers'?1:0;
   const needed=Math.ceil(o.edges.length/renderChunkSize);
   while(data.chunks.length<needed){
    const geo=new THREE.InstancedBufferGeometry();geo.index=data.base.geo.index;geo.attributes={...data.base.geo.attributes};

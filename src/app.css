@@ -1,0 +1,332 @@
+/* MycoForm application styles. Tokens live in tokens.css; no raw hex here. */
+
+/* ---------------------------------------------------------------- shell --
+   The old shell computed .workspace height as calc(100dvh - 118px), hard-coding
+   header 76px + footer 42px. But the footer was min-height, so any wrap pushed
+   the page past 100dvh and clipped the "fullscreen" viewport. Rows of
+   auto / 1fr / auto remove the arithmetic entirely. */
+.app{height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+
+header{min-height:4.75rem;border-bottom:1px solid var(--border-subtle);display:flex;
+ align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1.875rem;
+ background:var(--surface-2)}
+.brand{font-family:Manrope,sans-serif;font-size:var(--fs-lg);letter-spacing:var(--track-brand);
+ font-weight:700;display:flex;align-items:center;gap:.8125rem;white-space:nowrap}
+.brandmark{font-size:1.75rem;color:var(--accent);font-weight:400}
+.brand-sub{font-family:'DM Sans',sans-serif;font-size:var(--fs-micro);font-weight:400;
+ letter-spacing:var(--track-caps);color:var(--text-3);border-left:1px solid var(--border-subtle);
+ margin-left:.625rem;padding-left:1.4375rem}
+.header-right{display:flex;align-items:center;gap:.75rem;font-size:var(--fs-micro);
+ letter-spacing:var(--track-caps);color:var(--text-2)}
+.header-note{display:flex;align-items:center;gap:.5rem}
+.version{color:var(--text-3)}
+.status-dot,.live-dot{display:inline-block;background:var(--accent);width:5px;height:5px;
+ border-radius:50%;box-shadow:0 0 9px var(--accent-edge);flex:none}
+
+.rail-toggle{min-height:2.25rem;padding:.4375rem .75rem;font-size:var(--fs-micro);
+ letter-spacing:var(--track-caps);color:var(--text-2);border:1px solid var(--border-control);
+ border-radius:var(--radius);white-space:nowrap}
+.rail-toggle[aria-pressed=true],.rail-toggle[aria-expanded=true]{
+ background:var(--accent-wash);border-color:var(--accent-edge);color:var(--accent)}
+
+.workspace{display:grid;grid-template-columns:var(--rail-l) minmax(0,1fr) var(--rail-r);
+ min-height:0;position:relative}
+/* Explicit column. A rail in overlay mode is position:absolute and so leaves
+   grid flow; without this, auto-placement would drop <main> into column 1 —
+   which is 0px wide once the left rail undocks, blanking the viewport. */
+main{grid-column:2;position:relative;overflow:hidden;min-height:0;background:var(--surface-1)}
+.scene{position:absolute;inset:0}
+
+footer{min-height:auto;padding:.5rem 1.625rem;border-top:1px solid var(--border-subtle);
+ background:var(--surface-2);display:flex;align-items:center;justify-content:space-between;
+ gap:1rem;flex-wrap:wrap;font-size:var(--fs-micro);letter-spacing:var(--track-caps);
+ color:var(--text-3)}
+footer>span{display:flex;align-items:center;gap:.5rem}
+footer>span b{margin:0 .75rem;font-weight:400;color:var(--text-3)}
+footer>div{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+footer button{min-height:2.25rem;padding:.5rem .75rem;font-size:var(--fs-micro);
+ color:var(--text-2);border:1px solid transparent;border-radius:var(--radius)}
+footer button:hover{border-color:var(--border-control)}
+footer label{font-size:var(--fs-micro);display:flex;align-items:center;gap:.5rem}
+footer input{min-height:2rem;width:5.5rem;padding:.375rem .5rem;background:var(--surface-3);
+ border:1px solid var(--border-control);border-radius:var(--radius);color:var(--text-1);
+ font-family:monospace;font-size:var(--fs-micro)}
+
+/* ----------------------------------------------------------------- rails -- */
+.left,.right{background:var(--surface-2);padding:1.25rem 1.4375rem;overflow:auto;min-width:0}
+.left{border-right:1px solid var(--border-subtle);display:flex;flex-direction:column}
+.right{border-left:1px solid var(--border-subtle);display:flex;flex-direction:column}
+.app aside{scrollbar-width:thin;scrollbar-color:var(--border-control) var(--surface-2)}
+
+/* Docking. A rail in overlay mode becomes a slide-over sheet inside .workspace
+   instead of being deleted. This is the same code path for "viewport is narrow"
+   and for the manual Focus toggle, which is why no control is ever removed. */
+.workspace[data-overlay~=left]{--rail-l:0px}
+.workspace[data-overlay~=right]{--rail-r:0px}
+.workspace[data-overlay~=left] .left,
+.workspace[data-overlay~=right] .right{position:absolute;inset-block:0;z-index:4;
+ width:min(21rem,92%);box-shadow:var(--shadow-raise);visibility:hidden;
+ /* visibility flips instantly on open and is delayed only on close. Transitioning
+    it in both directions leaves the sheet hidden for the first frame, and
+    focus() on a hidden element silently does nothing. */
+ transition:transform .18s ease,visibility 0s linear .18s}
+.workspace[data-overlay~=left] .left{left:0;transform:translateX(-100%)}
+.workspace[data-overlay~=right] .right{right:0;transform:translateX(100%)}
+.workspace[data-open=left] .left,
+.workspace[data-open=right] .right{transform:none;visibility:visible;
+ transition:transform .18s ease,visibility 0s linear 0s}
+
+/* ------------------------------------------------------------- left rail -- */
+.eyebrow,.section-title{font-size:var(--fs-micro);letter-spacing:var(--track-caps);
+ color:var(--text-3);font-weight:500}
+.eyebrow{display:flex;justify-content:space-between;gap:.5rem}
+.section-title{display:flex;align-items:center;justify-content:space-between;
+ margin-bottom:.75rem}
+.left h1{font-family:Manrope,sans-serif;font-size:var(--fs-display);line-height:var(--lh-tight);
+ font-weight:400;letter-spacing:var(--track-display);margin:.625rem 0}
+.left h1 span{color:var(--accent)}
+.intro{font-size:var(--fs-xs);line-height:1.6;color:var(--text-2);margin:0}
+.intro em{font-style:normal;color:var(--text-1)}
+.divider{height:1px;background:var(--border-subtle);margin:1rem 0}
+
+nav{display:grid;gap:.1875rem}
+.tool{justify-content:flex-start;width:100%;min-height:2.25rem;font-size:var(--fs-sm);
+ color:var(--text-2);padding:.5rem .6875rem;border:1px solid transparent;
+ border-radius:var(--radius);text-align:left}
+.tool.selected{background:var(--accent-wash);color:var(--accent);border-color:var(--accent-edge)}
+
+.tool-options{padding:.875rem .25rem 0}
+.tool-options label{display:flex;justify-content:space-between;gap:.5rem;
+ font-size:var(--fs-xs);color:var(--text-2)}
+.tool-options b{font-size:var(--fs-xs);font-weight:400;color:var(--text-1)}
+.height-presets{display:flex;gap:.25rem;flex-wrap:wrap;margin-top:-.1875rem}
+.height-presets button{min-height:2rem;padding:.375rem .5rem;font-size:var(--fs-micro);
+ border:1px solid var(--border-control);border-radius:var(--radius);color:var(--text-2)}
+.height-presets button.active{background:var(--accent-wash);color:var(--accent);
+ border-color:var(--accent-edge)}
+.radius-label{margin-top:1rem}
+.hint{font-size:var(--fs-xs);line-height:1.6;color:var(--text-3);margin-top:.75rem}
+
+.left-bottom{margin-top:auto;padding-top:1.25rem}
+.left-bottom p{font-size:var(--fs-xs);line-height:var(--lh-body);color:var(--text-3);
+ margin:.5rem 0 0}
+
+/* -------------------------------------------------------------- HUD zones --
+   One grid overlay layer replaces nine absolutely-positioned elements with
+   hardcoded px offsets. Only the "stage" row is 1fr, so it absorbs all slack
+   and the remaining rows size to content — overlays cannot collide, and hiding
+   one (the tutorial at stage 2, say) needs no repositioning patch.
+   .hud is a SIBLING of .scene, never a parent: wrapping .scene would change the
+   box the r3f ResizeObserver measures. */
+.hud{position:absolute;inset:0;z-index:1;pointer-events:none;display:grid;
+ grid-template-columns:auto 1fr auto;
+ grid-template-rows:auto auto minmax(0,1fr) auto auto auto;
+ grid-template-areas:
+  "status status status"
+  "tools  .      aux"
+  "stage  .      ."
+  "notice notice notice"
+  "dock   dock   dock"
+  "help   help   help";
+ gap:var(--hud-gap);padding:var(--hud-pad)}
+.hud>*{pointer-events:auto;min-width:0}
+
+.viewport-top{grid-area:status;pointer-events:none;display:flex;align-items:center;
+ justify-content:space-between;gap:1rem;font-size:var(--fs-micro);
+ letter-spacing:var(--track-caps);color:var(--text-2)}
+.viewport-top small{display:block;font-size:var(--fs-micro);letter-spacing:var(--track-caps);
+ color:var(--text-3);margin-top:.375rem}
+.studio-tag{font-size:var(--fs-micro);letter-spacing:var(--track-caps);color:var(--text-3);
+ white-space:nowrap}
+
+.view-modes{grid-area:tools;align-self:start;justify-self:start;display:flex;
+ align-items:center;flex-wrap:wrap;gap:.1875rem;padding:.25rem;
+ background:var(--surface-glass);border:1px solid var(--border-subtle);
+ border-radius:var(--radius-lg)}
+.view-modes button{min-height:2rem;padding:.375rem .625rem;font-size:var(--fs-micro);
+ border-radius:var(--radius);color:var(--text-2)}
+.view-modes button.active{background:var(--accent-wash);color:var(--accent)}
+
+.material-switch{grid-area:aux;align-self:start;justify-self:end;display:flex;
+ flex-wrap:wrap;justify-content:flex-end;gap:.1875rem;padding:.25rem;
+ background:var(--surface-glass);border:1px solid var(--border-subtle);
+ border-radius:var(--radius-lg)}
+.material-switch button{min-height:2rem;padding:.375rem .625rem;font-size:var(--fs-micro);
+ border-radius:var(--radius);color:var(--text-2)}
+.material-switch button.active{background:var(--accent-wash);color:var(--accent)}
+
+.scene-caption{grid-area:stage;align-self:start;pointer-events:none;max-width:28ch}
+.scene-caption>span{font-size:var(--fs-micro);letter-spacing:var(--track-caps);color:var(--text-3)}
+.scene-caption h2{font-family:Manrope,sans-serif;font-weight:400;font-size:var(--fs-display-sm);
+ line-height:1.3;letter-spacing:var(--track-display);margin:.75rem 0;color:var(--text-1)}
+.scene-caption h2 i{font-style:normal;color:var(--text-3)}
+.scene-caption p{font-size:var(--fs-xs);color:var(--text-3);margin:0}
+
+.hud-notices{grid-area:notice;display:flex;flex-direction:column;justify-content:flex-end;
+ gap:var(--hud-gap);pointer-events:none}
+.hud-notices>*{pointer-events:auto}
+
+.tutorial{background:var(--surface-glass);border:1px solid var(--accent-edge);
+ border-radius:var(--radius-lg);display:flex;align-items:center;gap:.9375rem;padding:1rem 1.125rem}
+@supports(backdrop-filter:blur(1px)){.tutorial{backdrop-filter:blur(12px)}}
+.step{color:var(--accent);display:flex;padding-right:.9375rem;
+ border-right:1px solid var(--border-subtle)}
+.tutorial strong{font-size:var(--fs-sm);font-weight:500;color:var(--text-1)}
+.tutorial p{font-size:var(--fs-xs);color:var(--text-2);margin:.375rem 0 0;line-height:var(--lh-ui)}
+
+.toast{display:flex;align-items:flex-start;gap:.75rem;background:var(--accent);
+ color:var(--accent-ink);padding:.75rem .875rem;font-size:var(--fs-sm);
+ border-radius:var(--radius);box-shadow:var(--shadow-raise)}
+.toast p{margin:0;flex:1}
+.toast button{min-height:2rem;min-width:2rem;padding:0 .5rem;color:var(--accent-ink);
+ font-size:var(--fs-md);border-radius:var(--radius);flex:none}
+.toast button:hover{background:var(--ink-wash);color:var(--accent-ink)}
+
+.transport{grid-area:dock;justify-self:center;align-self:end;display:flex;gap:.75rem;
+ align-items:center;flex-wrap:wrap;justify-content:center;background:var(--surface-3);
+ border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:.4375rem;
+ box-shadow:var(--shadow-raise)}
+.transport button{min-height:2.25rem;font-size:var(--fs-xs);padding:.375rem .5625rem;
+ border-radius:var(--radius)}
+.transport .grow{background:var(--accent);color:var(--accent-ink);padding:.375rem 1rem;
+ font-weight:600}
+.transport .grow:hover{background:var(--accent);color:var(--accent-ink)}
+.speeds{display:flex;gap:.125rem;border-right:1px solid var(--border-subtle);padding-right:.5625rem}
+.speeds button{color:var(--text-2);font-size:var(--fs-xs)}
+.speeds button.active{background:var(--accent-wash);color:var(--accent)}
+.time{font-family:monospace;font-size:var(--fs-micro);color:var(--text-2);padding:0 .625rem;
+ border-left:1px solid var(--border-subtle);white-space:nowrap}
+
+.camera-help{grid-area:help;justify-self:center;align-self:end;text-align:center;
+ font-size:var(--fs-micro);letter-spacing:var(--track-caps);color:var(--text-3);
+ pointer-events:none}
+
+/* ------------------------------------------------------------ right rail -- */
+.rail-section{display:block}
+.transform-panel{order:-1}
+.rail-feed{order:1}
+.rail-intent{order:2}
+.rail-organism{order:3}
+.rail-climate{order:4}
+.rail-care{order:5}
+.rail-detail{order:6}
+.approx{order:9}
+/* Once growth is underway the instrument leads and the essay follows.
+   Ordering only — no [data-stage] rule may touch grid-template-columns, or the
+   r3f resize observer refits the camera mid-play. */
+.app[data-stage="1"] .rail-organism,.app[data-stage="2"] .rail-organism{order:1}
+.app[data-stage="1"] .rail-climate,.app[data-stage="2"] .rail-climate{order:2}
+.app[data-stage="1"] .rail-feed,.app[data-stage="2"] .rail-feed{order:3}
+.app[data-stage="1"] .rail-detail,.app[data-stage="2"] .rail-detail{order:4}
+.app[data-stage="1"] .rail-intent,.app[data-stage="2"] .rail-intent{order:5}
+.app[data-stage="1"] .rail-care,.app[data-stage="2"] .rail-care{order:6}
+
+.objective{padding:1.0625rem .875rem;background:var(--accent-wash);
+ border:1px solid var(--accent-edge);border-radius:var(--radius-lg);margin-bottom:1.75rem}
+.objective .eyebrow{color:var(--text-3)}
+.objective h3{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+ font-size:var(--fs-md);font-weight:500;margin:.75rem 0 .4375rem;color:var(--text-1)}
+.objective p{font-size:var(--fs-xs);line-height:var(--lh-body);color:var(--text-2);margin:0}
+
+.stats{display:flex;gap:1.75rem;flex-wrap:wrap;margin:1.5rem 0}
+.stats span{font-size:var(--fs-micro);letter-spacing:var(--track-caps);color:var(--text-3)}
+.stats strong{display:block;font-size:var(--fs-xl);font-weight:400;margin-top:.5rem;
+ font-family:Manrope,sans-serif;color:var(--text-1)}
+.metrics p{display:flex;justify-content:space-between;gap:.75rem;font-size:var(--fs-xs);
+ color:var(--text-3);margin:1rem 0}
+.metrics b{font-weight:400;color:var(--text-1)}
+
+.climate{padding:0}
+.first-feed{display:flex;width:100%;justify-content:space-between;gap:.5rem;
+ border:1px solid var(--accent-edge);background:var(--accent-wash);padding:.8125rem;
+ font-size:var(--fs-sm);color:var(--accent);border-radius:var(--radius);min-height:2.75rem}
+.care-note{border-top:1px solid var(--border-subtle);margin-top:1.5rem;padding-top:1.25rem}
+.care-note p{font-size:var(--fs-xs);line-height:var(--lh-body);color:var(--text-3);margin:.5rem 0 0}
+
+.detail-control{border-top:1px solid var(--border-subtle);margin-top:1.25rem;padding-top:1.125rem;
+ font-size:var(--fs-xs);color:var(--text-2)}
+.detail-control label{display:block;margin-bottom:.5rem}
+.detail-control select{font-size:var(--fs-xs);padding:.5rem}
+.detail-control p{font-size:var(--fs-xs);line-height:var(--lh-body);color:var(--text-3)}
+.detail-control span{font-family:monospace;font-size:var(--fs-micro);color:var(--text-3)}
+.approx{font-size:var(--fs-micro);line-height:var(--lh-body);color:var(--text-3);margin:1.4375rem 0 0}
+
+/* -------------------------------------------------------- transform panel -- */
+.transform-panel{background:var(--surface-3);border:1px solid var(--accent-edge);padding:1rem;
+ border-radius:var(--radius-lg);margin-bottom:1.5rem}
+.transform-panel .section-title{margin:0 0 .625rem;color:var(--text-1)}
+.transform-panel .section-title button{font-size:var(--fs-lg);line-height:1;padding:0;
+ min-width:2rem;min-height:2rem}
+.transform-panel select{font-size:var(--fs-xs);max-width:100%;padding:.5rem}
+.transform-panel p{font-size:var(--fs-xs);color:var(--text-3);line-height:var(--lh-body)}
+.transform-modes{display:flex;gap:.375rem;margin:.75rem 0}
+.transform-modes button{flex:1;font-size:var(--fs-xs);min-height:2.25rem;padding:.5rem;
+ border:1px solid var(--border-control);border-radius:var(--radius);color:var(--text-2)}
+.transform-modes button.active{background:var(--accent-wash);color:var(--accent);
+ border-color:var(--accent-edge)}
+.coordinates{display:flex;gap:.4375rem}
+.coordinates label{flex:1;min-width:0;font-size:var(--fs-micro);color:var(--text-2)}
+.coordinates input,.radius-input input{display:block;width:100%;min-width:0;min-height:2rem;
+ background:var(--surface-2);color:var(--text-1);border:1px solid var(--border-control);
+ border-radius:var(--radius);padding:.375rem .5rem;font-size:var(--fs-xs);margin-top:.3125rem}
+.radius-input{display:block;font-size:var(--fs-micro);color:var(--text-2);margin-top:.75rem}
+.outline{width:100%;border:1px solid var(--border-control);min-height:2.25rem;padding:.5rem;
+ font-size:var(--fs-xs);border-radius:var(--radius);color:var(--text-2)}
+.delete-placement,.undo-delete{width:100%;min-height:2.25rem;padding:.5625rem;margin-top:.5625rem;
+ border-radius:var(--radius);font-size:var(--fs-xs)}
+.delete-placement{color:var(--danger);background:var(--danger-wash);border:1px solid var(--danger-edge)}
+.delete-note{color:var(--danger)!important;font-size:var(--fs-micro)!important}
+.undo-delete{color:var(--accent);background:var(--accent-wash);border:1px solid var(--accent-edge)}
+
+/* ---------------------------------------------------------- export dialog -- */
+.export-backdrop{position:fixed;inset:0;background:var(--scrim);z-index:100;display:flex;
+ align-items:center;justify-content:center;padding:1.5rem}
+@supports(backdrop-filter:blur(1px)){.export-backdrop{backdrop-filter:blur(7px)}}
+.export-dialog{width:min(33rem,100%);max-height:92vh;overflow:auto;background:var(--surface-3);
+ border:1px solid var(--accent-edge);border-radius:var(--radius-lg);padding:1.75rem;
+ box-shadow:var(--shadow-modal)}
+.export-dialog .section-title{margin-bottom:.9375rem}
+.export-dialog .section-title button{font-size:var(--fs-lg);padding:0;min-width:2rem;min-height:2rem}
+.export-dialog h2{font-family:Manrope,sans-serif;font-size:var(--fs-xl);font-weight:400;
+ margin:0 0 .5625rem;letter-spacing:var(--track-display)}
+.export-dialog>p{font-size:var(--fs-xs);line-height:var(--lh-body);color:var(--text-2)}
+.export-formats{display:grid;gap:.5rem;margin:1.375rem 0}
+.export-formats label{display:flex;gap:.75rem;align-items:flex-start;padding:.8125rem;
+ border:1px solid var(--border-control);border-radius:var(--radius);cursor:pointer}
+.export-formats label.chosen{background:var(--accent-wash);border-color:var(--accent-edge)}
+.export-formats input{accent-color:var(--accent);margin-top:.1875rem;width:1rem;height:1rem}
+.export-formats strong{display:block;font-size:var(--fs-sm);font-weight:500;color:var(--text-1)}
+.export-formats small{display:block;font-size:var(--fs-xs);line-height:var(--lh-ui);
+ color:var(--text-3);margin-top:.3125rem}
+.export-settings{display:flex;gap:.9375rem;flex-wrap:wrap}
+.export-settings label{flex:1;min-width:8rem;font-size:var(--fs-xs);color:var(--text-2)}
+.export-settings select{margin-top:.4375rem;font-size:var(--fs-xs);padding:.5rem}
+.export-dialog .export-note{font-size:var(--fs-micro);margin:1.1875rem 0;color:var(--text-3)}
+.export-dialog .export-error{color:var(--danger)}
+.export-download{background:var(--accent);color:var(--accent-ink);width:100%;min-height:2.75rem;
+ padding:.75rem;font-size:var(--fs-sm);border-radius:var(--radius);font-weight:600}
+.export-download:hover{background:var(--accent);color:var(--accent-ink)}
+.export-download:disabled{opacity:.5;cursor:wait}
+
+/* --------------------------------------------------------------- staging --
+   data-copy is the editorial lifecycle (overridable by the Notes toggle);
+   data-stage is the real latched growth stage and drives ordering only.
+   The tutorial deliberately survives stage 1: that is exactly when its text
+   becomes "Feed the direction you are curious about", the advice that only
+   earns its place once growth has started. The old rule hid it at 40 nodes. */
+.app[data-copy="1"] .scene-caption{display:none}
+.app[data-copy="2"] .scene-caption,
+.app[data-copy="2"] .tutorial,
+.app[data-copy="2"] .left-bottom,
+.app[data-copy="2"] .rail-care,
+.app[data-copy="2"] .rail-intent{display:none}
+
+@media(max-width:1100px){
+ .left,.right{padding:1.4375rem 1rem}
+ .brand-sub,.header-note{display:none}
+}
+@media(max-width:820px){
+ header{padding:.75rem 1rem}
+ footer{padding:.5rem .75rem}
+ .studio-tag{display:none}
+}

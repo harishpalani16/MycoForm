@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test src/simulation/*.test.ts src/exporting/*.test.ts"
+    "test": "tsx --test src/simulation/*.test.ts src/exporting/*.test.ts src/ui/*.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
