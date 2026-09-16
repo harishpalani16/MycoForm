@@ -13,6 +13,12 @@ npm run build
 
 Requires Node.js 20.19+ or 22.12+. Open http://localhost:5173. Production files are built in `dist`.
 
+## Deploy
+
+Pushing to `main` builds the site and publishes it to GitHub Pages via `.github/workflows/deploy.yml`. Enable this once per repository: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+
+The site is served from a project subpath, so `vite.config.ts` sets Vite's `base`. The workflow passes the repository name as `BASE_PATH`, which keeps forks and renames working; local builds fall back to `/MycoForm/`. The dev server is unaffected and still serves from `/`.
+
 ## Play
 
 - A single spore starts in open space. Click **Offer the first feeding** for a few nearby food patches, or click/drag **Offer nutrients** to feed manually.
