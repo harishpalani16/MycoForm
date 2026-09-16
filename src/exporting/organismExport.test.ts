@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader.js';
+import {STLLoader} from 'three/examples/jsm/loaders/STLLoader.js';
+import {Box3} from 'three';
+import {firstSpore,Organism} from '../simulation/organism';
+import {exportOrganism,createStrandMesh} from './organismExport';
+const fixture=()=>{const o=firstSpore();o.feed([2,2,0],2);for(let i=0;i<12;i++)o.step();o.edges[0].alive=false;return o;};
+test('experiment exports round-trip the complete simulation',()=>{const o=fixture();o.compact();const f=exportOrganism(o,{format:'experiment',units:'mm',detail:'low'});assert.equal(Organism.load(f.data as string).save(),o.save());assert.ok(f.name.endsWith('.json'));});
+test('OBJ centerlines exclude removed edges and honor selected units',()=>{const o=fixture();const a=exportOrganism(o,{format:'obj-lines',units:'m',detail:'low'}).data as string,b=exportOrganism(o,{format:'obj-lines',units:'mm',detail:'low'}).data as string;assert.equal(a.split('\n').filter(s=>s.startsWith('l ')).length,o.edges.filter(e=>e.alive).length);const parsedA=new OBJLoader().parse(a),parsedB=new OBJLoader().parse(b);const boxA=new Box3().setFromObject(parsedA),boxB=new Box3().setFromObject(parsedB);assert.ok(Math.abs(boxB.max.y/boxA.max.y-1000)<.01);});
+test('OBJ and binary STL export loadable meshes with matching bounds',()=>{const o=fixture();const obj=exportOrganism(o,{format:'obj-mesh',units:'m',detail:'low'}),stl=exportOrganism(o,{format:'stl',units:'m',detail:'low'});const loaded=new OBJLoader().parse(obj.data as string),geometry=new STLLoader().parse(stl.data as ArrayBuffer);geometry.computeBoundingBox();const bounds=new Box3().setFromObject(loaded);assert.ok(bounds.min.distanceTo(geometry.boundingBox!.min)<.0001);assert.ok(bounds.max.distanceTo(geometry.boundingBox!.max)<.0001);const mesh=createStrandMesh(o,'m','low');assert.equal(geometry.attributes.position.count,mesh.geometry.index!.count);const data=new DataView(stl.data as ArrayBuffer);assert.equal(data.byteLength,84+50*data.getUint32(80,true));mesh.geometry.dispose();mesh.material.dispose();geometry.dispose();});
+test('geometry exports reject empty growth while allowing experiment saves',()=>{const o=firstSpore();assert.throws(()=>exportOrganism(o,{format:'stl',units:'mm',detail:'low'}),/Grow some strands/);assert.ok(exportOrganism(o,{format:'experiment',units:'m',detail:'low'}).data);});

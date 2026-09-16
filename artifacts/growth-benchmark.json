@@ -1,0 +1,59 @@
+{
+  "note": "Node.js CPU simulation timings on synthetic 128-branch networks. Not browser FPS.",
+  "results": [
+    {
+      "nodes": 24000,
+      "mature": false,
+      "loadMs": 52.34,
+      "firstFourStepsMaxMs": 85.15,
+      "medianMs": 2.09,
+      "p95Ms": 14.43,
+      "activeTips": 118
+    },
+    {
+      "nodes": 24000,
+      "mature": true,
+      "loadMs": 42.34,
+      "firstFourStepsMaxMs": 11.57,
+      "medianMs": 1.53,
+      "p95Ms": 4.67,
+      "activeTips": 118
+    },
+    {
+      "nodes": 100000,
+      "mature": false,
+      "loadMs": 175.89,
+      "firstFourStepsMaxMs": 45.17,
+      "medianMs": 1.28,
+      "p95Ms": 21.83,
+      "activeTips": 125
+    },
+    {
+      "nodes": 100000,
+      "mature": true,
+      "loadMs": 151.06,
+      "firstFourStepsMaxMs": 20.16,
+      "medianMs": 1.21,
+      "p95Ms": 3.49,
+      "activeTips": 125
+    },
+    {
+      "nodes": 490000,
+      "mature": false,
+      "loadMs": 827.31,
+      "firstFourStepsMaxMs": 90.62,
+      "medianMs": 1.7,
+      "p95Ms": 88.32,
+      "activeTips": 128
+    },
+    {
+      "nodes": 490000,
+      "mature": true,
+      "loadMs": 1063.2,
+      "firstFourStepsMaxMs": 106.31,
+      "medianMs": 1.24,
+      "p95Ms": 5.07,
+      "activeTips": 128
+    }
+  ]
+}
